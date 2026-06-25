@@ -1,0 +1,23 @@
+{
+  "_note": "Illustrative response only. Field names reflect the actual API shape; exact numbers vary by engine version and inputs. Input: 30 MW IT / 120 kW per rack / Rubin / 5000 m2 / metropolitan / N+1 / liquid / PUE 1.2 target.",
+  "rackCount": 256,
+  "rackCountRaw": 250,
+  "pueDesign": 1.21,
+  "mvaTotal": 45.8,
+  "liquidCoolingLoadMw": 26.4,
+  "airCoolingLoadMw": 3.6,
+  "cduCount": 13,
+  "totalCostKrw": 187500000000,
+  "totalMonths": 28,
+  "warnings": [],
+  "basisHash": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
+  "deploymentUnit": "rubin_nvl72",
+  "redundancy": "n_plus_1",
+  "coolingMode": "liquid",
+  "pueTarget": 1.2,
+  "region": "metropolitan",
+  "gpuGen": "rubin",
+  "itLoadMw": 30,
+  "rackDensityKw": 120,
+  "siteAreaSqm": 5000
+}

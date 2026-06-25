@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "aidc-design-engine": {
+      "url": "https://aidc-ai.io/api/mcp"
+    }
+  }
+}
