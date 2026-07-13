@@ -98,6 +98,18 @@ The server is immediately usable without an API key. To raise the rate limit, ad
 
 Contact [contact@aidc-ai.io](mailto:contact@aidc-ai.io) for a registered or partner key.
 
+### Docker (local stdio server)
+
+Build and run the same published MCP server used for registry evaluation:
+
+```bash
+docker build -t aidc-ai-mcp .
+docker run --rm -i aidc-ai-mcp
+```
+
+The container communicates over stdio and connects to `https://aidc-ai.io` by
+default. No API key is required for the anonymous tier.
+
 ---
 
 ## REST Usage
