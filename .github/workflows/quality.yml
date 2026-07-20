@@ -1,0 +1,25 @@
+name: Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate JSON metadata
+        run: |
+          python -m json.tool glama.json >/dev/null
+          python -m json.tool mcp.json >/dev/null
+          python -m json.tool design.response.example.json >/dev/null
+
+      - name: Build MCP server image
+        run: docker build --tag aidc-ai-mcp:ci .
