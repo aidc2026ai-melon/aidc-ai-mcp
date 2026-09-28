@@ -1,0 +1,23 @@
+{
+  "featureId": "F-MCP-PUBLIC-CONNECTOR-20260928",
+  "baseCommit": "2753328aac96b410ed30a1fd00813df228e2a219",
+  "reason": "Align public Docker and authenticated API examples with the published package and actual response envelope; remove obsolete synthetic engineering output.",
+  "files": [
+    ".github/workflows/quality.yml",
+    "Dockerfile",
+    "README.md",
+    "design.curl.sh",
+    "design.example.js",
+    "design.response.example.json",
+    "mcp.json",
+    "recovery/exact-pickup-manifest.json",
+    "remote.server.json",
+    "tests/design-example.test.cjs"
+  ],
+  "verificationStatus": "LOCAL_GATES_PASSED; REMOTE_REGISTRY_PUBLICATION_PENDING",
+  "verificationEvidence": {
+    "examples": "Four authenticated-example tests, node syntax, bash syntax and JSON checks passed.",
+    "docker": "Default Dockerfile built from public aidc-mcp-server@0.2.4; container reports 0.2.4, omits outputSchema, and authenticated design/validate/layout calls returned ok and requestId. Temporary container exited and was removed.",
+    "scope": "Connection verification only. Engineering verdict remains PENDING; no private project or credential values committed."
+  }
+}

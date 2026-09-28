@@ -31,7 +31,7 @@ validates, and lays out Rubin-era AI data centers.
 
 - MCP client configuration snippet.
 - `curl` and Node.js examples that call the public REST projection (`/api/agent/*`).
-- An illustrative response so you know what fields to expect.
+- Authenticated runnable examples that read the current response shape.
 
 The core calculation engine, reference catalogs (rack library, AHJ/code matrix,
 1.6T fabric topology, direct-to-chip (D2C) cooling models, etc.) are proprietary and
@@ -50,9 +50,10 @@ remain server-side. No engine source is published here.
 | Transport | Streamable HTTP |
 | Endpoint | `https://aidc-ai.io/api/mcp` |
 | Official registry name | `io.aidc-ai/design-engine` |
-| Auth | None required (anonymous tier). Optional `Authorization: Bearer aidc_live_<32hex>` raises rate tier. |
+| Registry descriptor | `remote.server.json` (metadata revision 1.0.1; separate from npm/API versions) |
+| Auth | Registered API key required. Configure `Authorization: Bearer` in the client credential settings; never send keys in tool arguments. |
 | Tool count | 3 |
-| Rate limit (anon) | 10 req / hour on `/api/agent/*` |
+| Limits | The registered account limits apply; preserve HTTP 429 and `Retry-After`. |
 
 ### Tools
 
@@ -68,35 +69,23 @@ remain server-side. No engine source is published here.
 
 ### MCP client configuration
 
-Add this to your MCP client config (e.g. Claude Desktop `claude_desktop_config.json`,
-Cursor MCP settings, or any Streamable HTTP client):
+Obtain a registered integration key through [AIDC Contact](https://aidc-ai.io/contact).
+Use a client that supports Streamable HTTP and pass the key through its
+credential settings as an `Authorization: Bearer` header. The `mcp.json`
+example contains a replacement marker, not a working credential. Keep the
+configured copy private and never commit a real key.
 
-```json
-{
-  "mcpServers": {
-    "aidc-design-engine": {
-      "url": "https://aidc-ai.io/api/mcp"
-    }
-  }
-}
+For a local stdio client, the published package is available through npm:
+
+```bash
+npx -y aidc-mcp-server@0.2.4
 ```
 
-The server is immediately usable without an API key. To raise the rate limit, add:
-
-```json
-{
-  "mcpServers": {
-    "aidc-design-engine": {
-      "url": "https://aidc-ai.io/api/mcp",
-      "headers": {
-        "Authorization": "Bearer aidc_live_<your-32-hex-key>"
-      }
-    }
-  }
-}
-```
-
-Contact [contact@aidc-ai.io](mailto:contact@aidc-ai.io) for a registered or partner key.
+Set `AIDC_API_KEY` in the MCP server process's environment using your client's
+secret or environment configuration. A file next to the server is not read
+automatically. `design`, `validate`, and `layout` do not accept credentials
+as tool inputs. Authentication errors are connection-configuration failures,
+not engineering verdicts.
 
 ### Docker (local stdio server)
 
@@ -104,17 +93,20 @@ Build and run the same published MCP server used for registry evaluation:
 
 ```bash
 docker build -t aidc-ai-mcp .
-docker run --rm -i aidc-ai-mcp
+docker run --rm -i -e AIDC_API_KEY aidc-ai-mcp
 ```
 
 The container communicates over stdio and connects to `https://aidc-ai.io` by
-default. No API key is required for the anonymous tier.
+default. Export a registered `AIDC_API_KEY` before running the container;
+`-e AIDC_API_KEY` forwards the existing variable without placing its value in
+the command text.
 
 ---
 
 ## REST Usage
 
-The MCP tools proxy to these REST endpoints (permissive CORS, same optional auth):
+The MCP package calls these REST endpoints. All calculation routes require a
+registered key:
 
 | Tool | REST endpoint |
 |---|---|
@@ -127,6 +119,7 @@ The MCP tools proxy to these REST endpoints (permissive CORS, same optional auth
 ```bash
 curl -s -X POST https://aidc-ai.io/api/agent/design \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${AIDC_API_KEY}" \
   -d '{
     "itLoadMw": 30,
     "rackDensityKw": 120,
@@ -141,28 +134,16 @@ curl -s -X POST https://aidc-ai.io/api/agent/design \
   }'
 ```
 
-### Illustrative response
+### Read the response
 
-> The JSON below is illustrative — field names and structure reflect the actual API
-> shape, but exact numbers will vary by engine version and input. See
-> `design.response.example.json` for the full object.
+Use `node design.example.js` for a live authenticated example. Successful
+responses contain `ok`, `summary`, `warnings`, `engineVersion`, `requestId`,
+and `_agent`. Sizing values such as `rackCount`, `pueDesign`, and `mvaTotal`
+are inside `summary`. Preserve warnings and validation findings; an `ok: true`
+response does not certify the design or turn `PENDING` into PASS.
 
-```json
-{
-  "rackCount": 256,
-  "rackCountRaw": 250,
-  "pueDesign": 1.21,
-  "mvaTotal": 45.8,
-  "liquidCoolingLoadMw": 26.4,
-  "airCoolingLoadMw": 3.6,
-  "cduCount": 13,
-  "totalCostKrw": 187500000000,
-  "totalMonths": 28,
-  "warnings": []
-}
-```
-
-(30 MW IT / 120 kW per rack / Rubin / 5 000 m² / metropolitan / N+1 / liquid / PUE 1.2 target)
+There is no fixed numeric output fixture for a real project. Use the returned
+engine result and its evidence for the exact selected inputs.
 
 ---
 
@@ -183,9 +164,9 @@ Size an AI data center from scratch.
 | `options.coolingMode` | string | `"air"` \| `"hybrid"` \| `"liquid"` | No |
 | `options.pueTarget` | number | 1.0 – 2.5 | No |
 
-**Key response fields:** `rackCount`, `rackCountRaw`, `pueDesign`, `mvaTotal`,
-`liquidCoolingLoadMw`, `airCoolingLoadMw`, `cduCount`, `totalCostKrw`,
-`totalMonths`, `warnings[]`
+Key response fields: `summary.rackCount`, optional `summary.unsnappedRackCount`,
+`summary.pueDesign`, `summary.mvaTotal`, and cooling/commercial values inside
+`summary`. `warnings[]`, `engineVersion`, and `requestId` are top-level fields.
 
 ---
 
@@ -205,8 +186,10 @@ Check a design against engineering rules.
 }
 ```
 
-**Key response fields:** `findings[]` (each with `severity`, `code`, `message`),
-`rfis[]`, `passCount`, `warnCount`, `failCount`
+Key response fields: `findings[]` (including `severity`, `family`, `message`,
+and optional `publicRuleId`), `rfis[]`, and optional `verdict` / `graphVerdict`.
+Public MCP accepts `rawInput` or `designSummary`; private EngineSession IDs
+remain in the signed-in AIDC workflow.
 
 ---
 

@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Size a 30 MW Rubin-era AI data center via the AIDC-AI.IO agent REST API.
-# No API key required for the anonymous tier (10 req/hour per IP).
-# To raise the rate limit, add: -H "Authorization: Bearer aidc_live_<32hex>"
+# A registered AIDC_API_KEY must already be set in the environment.
+set -euo pipefail
+: "${AIDC_API_KEY:?Set a registered AIDC_API_KEY before running this example.}"
 
-curl -s -X POST https://aidc-ai.io/api/agent/design \
+curl --fail-with-body --silent --show-error -X POST https://aidc-ai.io/api/agent/design \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${AIDC_API_KEY}" \
   -d '{
     "itLoadMw": 30,
     "rackDensityKw": 120,
