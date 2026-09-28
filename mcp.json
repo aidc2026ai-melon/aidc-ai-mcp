@@ -1,7 +1,10 @@
 {
   "mcpServers": {
     "aidc-design-engine": {
-      "url": "https://aidc-ai.io/api/mcp"
+      "url": "https://aidc-ai.io/api/mcp",
+      "headers": {
+        "Authorization": "Bearer REPLACE_WITH_REGISTERED_AIDC_API_KEY"
+      }
     }
   }
 }

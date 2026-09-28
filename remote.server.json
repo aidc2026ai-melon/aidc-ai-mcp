@@ -1,0 +1,34 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.aidc-ai/design-engine",
+  "description": "Registered-key AIDC design, validation and layout integration. Korea live.",
+  "repository": {
+    "url": "https://github.com/aidc2026ai-melon/aidc-ai-mcp",
+    "source": "github"
+  },
+  "version": "1.0.1",
+  "websiteUrl": "https://aidc-ai.io",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://aidc-ai.io/api/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Registered AIDC integration credential.",
+          "isRequired": true,
+          "isSecret": true,
+          "value": "Bearer {AIDC_API_KEY}",
+          "variables": {
+            "AIDC_API_KEY": {
+              "description": "Registered API key obtained through https://aidc-ai.io/contact.",
+              "format": "string",
+              "isRequired": true,
+              "isSecret": true
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
