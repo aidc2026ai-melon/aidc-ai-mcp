@@ -1,7 +1,7 @@
 # AIDC-AI.IO — MCP Connector
 
-**AI data center sizing, validation, and layout via a remote MCP server.**  
-AI 데이터센터 자동화 툴: 결정론적 엔진으로 AI 데이터센터를 설계·검증·레이아웃합니다.
+**AI data center sizing, validation, layout, rack POD feasibility and site fit through a remote MCP server.**  
+AI 데이터센터 자동화 툴: 결정론적 엔진으로 AI 데이터센터를 설계·검증·배치하고, 홀별 랙 POD 타당성과 부지 배치를 3D로 보여줍니다.
 
 [![MCP](https://img.shields.io/badge/MCP-Streamable%20HTTP-blue)](https://aidc-ai.io/api/mcp)
 [![Registry](https://img.shields.io/badge/registry-io.aidc--ai%2Fdesign--engine-green)](https://aidc-ai.io/.well-known/mcp/server.json)
@@ -11,147 +11,121 @@ AI 데이터센터 자동화 툴: 결정론적 엔진으로 AI 데이터센터�
 
 ## What is this?
 
-This repository shows how to connect an MCP client or REST client to the
-**AIDC-AI.IO Design Engine** — a deterministic, source-backed engine that sizes,
-validates, and lays out Rubin-era AI data centers.
+This repository shows how to connect an MCP client or a REST client to the
+**AIDC-AI.IO Design Engine**: a deterministic engine (no LLM inside the
+calculations) that sizes, validates and lays out AI data centers for NVIDIA
+Hopper, Blackwell and Vera Rubin racks.
 
-**What the engine does (on the server):**
+Give it an IT load, a GPU generation and a site. It returns:
 
-- Accepts an IT load, rack density, GPU generation (Hopper / Blackwell / **NVIDIA Vera Rubin**
-  NVL72 / VR200), and site constraints.
-- Returns deployment-unit-snapped rack counts, design PUE, power-factor-backed total MVA
-  (22.9 kV intake), liquid-cooling / air-cooling heat split, CDU planning values,
-  cost (KRW), and timeline.
-- Validates designs against electrical, cooling, layout, safety, and data rules with
-  severity-classified findings and RFIs.
-- Generates a rack-plan grid (hall dimensions, row/column positions in mm) and a
-  site-block layout.
+- the design basis: rack count, design PUE, total MVA, cooling split, cost (KRW) and schedule;
+- findings and RFIs from electrical, cooling, layout, safety and data rules;
+- rack, Hall and site layouts;
+- for a data hall: rack rows and aisles, CDUs, CRAHs, manifolds, busway and tap-offs, routed piping, power and
+  comms, power and thermal checks with margins, and a list of what it could not place;
+- for a Korean site: the parcel, the nearby substations and the whole-site fit;
+- an interactive 3D view of the result in clients that support MCP Apps.
 
-**What this repo contains:**
+Every tool is **read-only and stateless**. No account data is read, no design
+session is saved, and nothing is stored per user.
 
-- MCP client configuration snippet.
-- `curl` and Node.js examples that call the public REST projection (`/api/agent/*`).
-- Authenticated runnable examples that read the current response shape.
-
-The core calculation engine, reference catalogs (rack library, AHJ/code matrix,
-1.6T fabric topology, direct-to-chip (D2C) cooling models, etc.) are proprietary and
-remain server-side. No engine source is published here.
-
-> **Korea live.** Region-specific: 22.9 kV utility intake, Korean AHJ/code, climate,
-> and operations validation. Keywords the engine targets: AI data center, AIDC,
-> NVIDIA Rubin, Vera Rubin, 22.9kV, liquid cooling, CDU, D2C, 1.6T fabric, PUE.
+The calculation engine and its reference catalogs stay on the server. This
+repository holds client configuration and examples only.
 
 ---
 
-## MCP Server
+## MCP server
 
 | Field | Value |
 |---|---|
-| Transport | Streamable HTTP |
 | Endpoint | `https://aidc-ai.io/api/mcp` |
-| Official registry name | `io.aidc-ai/design-engine` |
-| Registry descriptor | `remote.server.json` (metadata revision 1.0.1; separate from npm/API versions) |
-| Auth | Registered API key required. Configure `Authorization: Bearer` in the client credential settings; never send keys in tool arguments. |
-| Tool count | 3 |
-| Limits | The registered account limits apply; preserve HTTP 429 and `Retry-After`. |
+| Transport | Streamable HTTP |
+| Server name | `aidc-design-engine` |
+| Tools | 12, all read-only (`readOnlyHint: true`) |
+| MCP App | `ui://aidc/viewer-3d` (3D viewer) |
+| Auth | **None until 2026-12-31 23:59 KST** (keyless window). See [Access](#access). |
+| Limits | 20 requests per minute per IP, plus a daily cap on keyless tool calls per IP. On HTTP 429, wait for `Retry-After`. |
 
 ### Tools
 
-| Tool | One-line description |
-|---|---|
-| `design` | Size an AI data center: returns rack count, PUE, total MVA, liquid/air cooling split, CDU count, cost (KRW), and build timeline. |
-| `validate` | Check a design against electrical, cooling, layout, safety, and data rules; returns severity-classified findings and RFIs. |
-| `layout` | Generate a rack-plan grid (hall dimensions, row/column positions in mm) and a site-block layout. |
+| Tool | What it does | 3D view |
+|---|---|---|
+| `design` | Size an AI data center: rack count, PUE, MVA, cost and schedule. | |
+| `validate` | Check a design summary or raw input against electrical, cooling, layout, safety and data rules; returns findings and RFIs. | |
+| `layout` | Generate rack blocks, rack-plan candidates and a site layout. | Yes |
+| `pod_feasibility` | Lay out GPU rack PODs per Hall (rows, aisles, CDUs, manifolds, busway and tap-offs), route piping and power, run power and thermal checks, and return the equipment schedule, BOQ, SLD, P&ID and an isometric drawing. | Yes |
+| `site_design` | Lay out a whole site on its parcels: buildings, Halls, EPODs, plant, generators and parking, with rack totals, MVA and PUE. | Yes |
+| `find_site` | Search a Korean address or place, look up cadastral parcels by PNU or coordinates, and return parcel polygons with their area. | |
+| `nearby_substations` | List substations near a site, nearest first, with distance (km) and voltage (kV). | |
+| `site_rack_capacity` | Turn a scalable-unit count and rack selections into physical racks, main GPU racks and MaxP/MaxQ IT MW. | |
+| `validation_programs` | List the validation programs the engine checks a design against. | |
+| `rack_catalog` | List the rack system catalog (power, cooling topology, accelerators, fabric) or return one system by slug. | |
+| `list_equipment_models` | List the equipment catalog's 3D models (GLB) with kind, catalog items and license. | |
+| `get_equipment_model` | Return one 3D model with its license, dimensions and a preview link; a download link only when its license allows it. | |
+
+`find_site`, `nearby_substations` and `site_design` cover sites in Korea.
 
 ---
 
-## Quick Start
+## Quick start
 
-### MCP client configuration
+### Claude (claude.ai, Claude Desktop)
 
-Obtain a registered integration key through [AIDC Contact](https://aidc-ai.io/contact).
-Use a client that supports Streamable HTTP and pass the key through its
-credential settings as an `Authorization: Bearer` header. The `mcp.json`
-example contains a replacement marker, not a working credential. Keep the
-configured copy private and never commit a real key.
+Settings → Connectors → Add custom connector, then enter:
 
-For a local stdio client, the published package is available through npm:
-
-```bash
-npx -y aidc-mcp-server@0.2.4
+```
+https://aidc-ai.io/api/mcp
 ```
 
-Set `AIDC_API_KEY` in the MCP server process's environment using your client's
-secret or environment configuration. A file next to the server is not read
-automatically. `design`, `validate`, and `layout` do not accept credentials
-as tool inputs. Authentication errors are connection-configuration failures,
-not engineering verdicts.
+No sign-in is asked for while the keyless window is open.
 
-### Docker (local stdio server)
-
-Build and run the same published MCP server used for registry evaluation:
+### Claude Code
 
 ```bash
-docker build -t aidc-ai-mcp .
-docker run --rm -i -e AIDC_API_KEY aidc-ai-mcp
+claude mcp add --transport http aidc https://aidc-ai.io/api/mcp
 ```
 
-The container communicates over stdio and connects to `https://aidc-ai.io` by
-default. Export a registered `AIDC_API_KEY` before running the container;
-`-e AIDC_API_KEY` forwards the existing variable without placing its value in
-the command text.
+### Other MCP clients
 
----
+Any client that supports Streamable HTTP:
 
-## REST Usage
-
-The MCP package calls these REST endpoints. All calculation routes require a
-registered key:
-
-| Tool | REST endpoint |
-|---|---|
-| `design` | `POST https://aidc-ai.io/api/agent/design` |
-| `validate` | `POST https://aidc-ai.io/api/agent/validate` |
-| `layout` | `POST https://aidc-ai.io/api/agent/layout` |
-
-### Example: size a 30 MW Rubin-era AI data center
-
-```bash
-curl -s -X POST https://aidc-ai.io/api/agent/design \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer ${AIDC_API_KEY}" \
-  -d '{
-    "itLoadMw": 30,
-    "rackDensityKw": 120,
-    "gpuGen": "rubin",
-    "siteAreaSqm": 5000,
-    "region": "metropolitan",
-    "options": {
-      "redundancy": "n_plus_1",
-      "coolingMode": "liquid",
-      "pueTarget": 1.2
+```json
+{
+  "mcpServers": {
+    "aidc-design-engine": {
+      "url": "https://aidc-ai.io/api/mcp"
     }
-  }'
+  }
+}
 ```
 
-### Read the response
+### Try it
 
-Use `node design.example.js` for a live authenticated example. Successful
-responses contain `ok`, `summary`, `warnings`, `engineVersion`, `requestId`,
-and `_agent`. Sizing values such as `rackCount`, `pueDesign`, and `mvaTotal`
-are inside `summary`. Preserve warnings and validation findings; an `ok: true`
-response does not certify the design or turn `PENDING` into PASS.
-
-There is no fixed numeric output fixture for a real project. Use the returned
-engine result and its evidence for the exact selected inputs.
+- "Check the POD feasibility of a 10 MW Rubin data hall and show it in 3D."
+- "Size a 50 MW Blackwell data center at 130 kW per rack on a 60,000 m² metropolitan site, then validate it."
+- "Find the parcel at this Korean address, list the substations within 10 km and fit a 100 MW campus on it."
 
 ---
 
-## Tools — Input Reference
+## Access
+
+- **Until 2026-12-31 23:59 KST** the server runs a keyless window. A request
+  with no key gets every tool listed above.
+- **After the window closes** a registered key is required again. Request one
+  through [AIDC Contact](https://aidc-ai.io/contact) and pass it in the client's
+  credential settings as an `Authorization: Bearer` header. `mcp.json` in this
+  repository is that registered-key form; its value is a replacement marker,
+  not a working key.
+- Keys are never tool arguments. Keep a configured key private and never commit it.
+- A registered key keeps its own tier during the window.
+
+---
+
+## Tools: input reference
+
+Each tool publishes its full JSON schema through `tools/list`. The most used inputs:
 
 ### `design`
-
-Size an AI data center from scratch.
 
 | Field | Type | Range / values | Required |
 |---|---|---|---|
@@ -160,19 +134,19 @@ Size an AI data center from scratch.
 | `gpuGen` | string | `"hopper"` \| `"blackwell"` \| `"rubin"` | Yes |
 | `siteAreaSqm` | number | 0 < x ≤ 1 000 000 | Yes |
 | `region` | string | `"metropolitan"` \| `"regional"` | Yes |
+| `hallCount` | integer | up to 48 | No |
 | `options.redundancy` | string | `"n"` \| `"n_plus_1"` \| `"2n"` | No |
 | `options.coolingMode` | string | `"air"` \| `"hybrid"` \| `"liquid"` | No |
 | `options.pueTarget` | number | 1.0 – 2.5 | No |
 
-Key response fields: `summary.rackCount`, optional `summary.unsnappedRackCount`,
-`summary.pueDesign`, `summary.mvaTotal`, and cooling/commercial values inside
-`summary`. `warnings[]`, `engineVersion`, and `requestId` are top-level fields.
-
----
+Sizing values such as `rackCount`, `pueDesign` and `mvaTotal` are inside
+`summary`. `warnings[]`, `engineVersion` and `requestId` are top-level fields.
 
 ### `validate`
 
-Check a design against engineering rules.
+Takes `rawInput` (the same fields as `design`) or `designSummary` (the summary
+of an earlier `design` answer). Returns `findings[]` with severity and family,
+and `rfis[]`.
 
 ```json
 {
@@ -186,16 +160,7 @@ Check a design against engineering rules.
 }
 ```
 
-Key response fields: `findings[]` (including `severity`, `family`, `message`,
-and optional `publicRuleId`), `rfis[]`, and optional `verdict` / `graphVerdict`.
-Public MCP accepts `rawInput` or `designSummary`; private EngineSession IDs
-remain in the signed-in AIDC workflow.
-
----
-
 ### `layout`
-
-Generate a rack plan and site block layout.
 
 ```json
 {
@@ -211,8 +176,102 @@ Generate a rack plan and site block layout.
 }
 ```
 
-**Key response fields:** `rackPlan` (hall dimensions, rows, columns, per-rack positions in mm),
-`sitePlan` (block-level layout in percentage coords)
+### `pod_feasibility`
+
+Give the IT load one of three ways: `hallItMw` (IT MW per Hall, for example
+`[25, 25, 32]`), `halls` (per-Hall IT MW with optional Hall dimensions), or
+`itLoadMw` with `hallCount`.
+
+| Field | Type | Range / values |
+|---|---|---|
+| `itLoadMw` | number | up to 720 |
+| `hallCount` | integer | up to 12 |
+| `gpuGen` | string | `"rubin"` \| `"blackwell"` \| `"hopper"` |
+| `rackDensityKw` | number | up to 500 (default: the generation's catalog value) |
+| `powerMode` | string | `"maxp"` \| `"maxq"` |
+| `cduLocation` | string | `"mechanical_gallery"` \| `"row_end"` \| `"in_row"` \| `"in_rack"` \| `"plant_floor"` |
+| `powerDistribution` | string | `"busway_rpp"` \| `"busway_tap_off"` |
+| `hotAisleMm`, `coldAisleMm` | integer | 900 – 4000 |
+
+```json
+{ "hallItMw": [10], "gpuGen": "rubin" }
+```
+
+### `site_design`
+
+Name the site by `address`, `pnus` (19-digit parcel codes), `picks` (points
+inside the parcels) or `parcels` (GeoJSON features, for example from
+`find_site`). Then give `itLoadMw` (up to 1000) or `hallItMw`, and optionally
+`gpuGen`, `rackDensityKw`, `pueTarget`, `powerMode` and `mainRack`.
+
+### Site and catalog tools
+
+| Tool | Inputs |
+|---|---|
+| `find_site` | `query` with `searchType` (`PLACE`, `DISTRICT`, `ADDRESS`), or `address`, or `pnus`, or `lat` and `lng` |
+| `nearby_substations` | `lat`, `lng` (required); `radiusKm`, `minKv`, `limit` |
+| `site_rack_capacity` | `suCount` (required); `powerSizingBasis` (`maxP`, `maxQ`), `rackCatalogSelections` |
+| `validation_programs` | `query` |
+| `rack_catalog` | `slug`, or `query`, `minPowerKw`, `coolingTopology` |
+| `list_equipment_models` | `query`, `kind`, `catalogItemId`, `downloadableOnly`, `limit`, `offset` |
+| `get_equipment_model` | `id` (required) |
+
+---
+
+## REST usage
+
+`design`, `validate` and `layout` are also plain REST endpoints:
+
+| Tool | REST endpoint |
+|---|---|
+| `design` | `POST https://aidc-ai.io/api/agent/design` |
+| `validate` | `POST https://aidc-ai.io/api/agent/validate` |
+| `layout` | `POST https://aidc-ai.io/api/agent/layout` |
+
+The keyless window covers these three endpoints too. The other nine tools are
+available through MCP only.
+
+```bash
+curl -s -X POST https://aidc-ai.io/api/agent/design \
+  -H "Content-Type: application/json" \
+  -d '{
+    "itLoadMw": 30,
+    "rackDensityKw": 120,
+    "gpuGen": "rubin",
+    "siteAreaSqm": 5000,
+    "region": "metropolitan",
+    "options": {
+      "redundancy": "n_plus_1",
+      "coolingMode": "liquid",
+      "pueTarget": 1.2
+    }
+  }'
+```
+
+A successful response contains `ok`, `summary`, `warnings`, `engineVersion`,
+`requestId` and `_agent`. Keep the warnings and validation findings: an
+`ok: true` response does not certify the design.
+
+`design.curl.sh` and `design.example.js` are the registered-key versions of
+this call. They stop before any network request when `AIDC_API_KEY` is not set.
+
+---
+
+## Local stdio server (npm, Docker)
+
+The npm package `aidc-mcp-server@0.2.4` and the `Dockerfile` in this repository
+run a local stdio server. That version offers `design`, `validate` and `layout`
+only, has no 3D view, and is configured with a registered key in `AIDC_API_KEY`.
+For all 12 tools, use the remote endpoint above.
+
+```bash
+npx -y aidc-mcp-server@0.2.4
+```
+
+```bash
+docker build -t aidc-ai-mcp .
+docker run --rm -i -e AIDC_API_KEY aidc-ai-mcp
+```
 
 ---
 
@@ -221,15 +280,18 @@ Generate a rack plan and site block layout.
 | Resource | URL |
 |---|---|
 | Website | https://aidc-ai.io |
-| OpenAPI 3.1 spec | https://aidc-ai.io/api/openapi.json |
 | MCP server card | https://aidc-ai.io/.well-known/mcp/server.json |
 | LLM context | https://aidc-ai.io/llms.txt |
 | Full LLM context | https://aidc-ai.io/llms-full.txt |
+| OpenAPI 3.1 spec (registered key) | https://aidc-ai.io/api/openapi.json |
+| Privacy | https://aidc-ai.io/privacy |
+| Terms | https://aidc-ai.io/terms |
+| Support | https://aidc-ai.io/contact |
 | Contact | contact@aidc-ai.io |
 
 ---
 
 ## License
 
-This repository (examples and connector code only) is released under the [MIT License](LICENSE).  
-The AIDC-AI.IO engine, reference catalogs, and all server-side logic remain proprietary.
+This repository (examples and connector configuration only) is released under the [MIT License](LICENSE).  
+The AIDC-AI.IO engine, reference catalogs and all server-side logic remain proprietary.
