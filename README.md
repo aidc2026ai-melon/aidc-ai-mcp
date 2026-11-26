@@ -44,7 +44,7 @@ repository holds client configuration and examples only.
 | Tools | 12, all read-only (`readOnlyHint: true`) |
 | MCP App | `ui://aidc/viewer-3d` (3D viewer) |
 | Auth | **None until 2026-12-31 23:59 KST** (keyless window). See [Access](#access). |
-| Limits | 20 requests per minute per IP, plus a daily cap on keyless tool calls per IP. On HTTP 429, wait for `Retry-After`. |
+| Limits | Without a key: 600 requests per hour and 20 requests per minute per IP, plus a daily cap on keyless tool calls per IP. On HTTP 429, wait for `Retry-After`. |
 
 ### Tools
 
@@ -228,8 +228,8 @@ inside the parcels) or `parcels` (GeoJSON features, for example from
 | `validate` | `POST https://aidc-ai.io/api/agent/validate` |
 | `layout` | `POST https://aidc-ai.io/api/agent/layout` |
 
-The keyless window covers these three endpoints too. The other nine tools are
-available through MCP only.
+The keyless window covers these three endpoints too, at 10 requests per hour
+per IP without a key. The other nine tools are available through MCP only.
 
 ```bash
 curl -s -X POST https://aidc-ai.io/api/agent/design \
